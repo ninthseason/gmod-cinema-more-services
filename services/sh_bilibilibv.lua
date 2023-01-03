@@ -16,7 +16,7 @@ if (CLIENT) then
 
 	function SERVICE:LoadProvider( Video, panel )
 		local data = string.Split( Video:Data(), " " )
-		
+
 		local url = THEATER_URL:format( data[1], data[2] ) .. (self.IsTimed and ("&t=%s"):format( math.Round(CurTime() - Video:StartTime()) ) or "" )
 
 		panel:OpenURL( url )
