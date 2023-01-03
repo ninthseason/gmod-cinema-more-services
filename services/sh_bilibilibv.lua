@@ -5,7 +5,7 @@ SERVICE.Name 	= "Bilibili"
 SERVICE.IsTimed = true
 
 local DataPattern = "^/video/BV([0-9]*)"
-local THEATER_URL = "https://www.bilibili.com/blackboard/player.html/?aid=%s"
+local THEATER_URL = "https://www.bilibili.com/blackboard/player.html/?aid=%s&cid=%s"
 local INFO_API = "https://api.bilibili.com/x/web-interface/view?bvid=%s"
 
 function SERVICE:Match( url )
@@ -15,8 +15,10 @@ end
 if (CLIENT) then
 
 	function SERVICE:LoadProvider( Video, panel )
+		local data = string.Split( Video:Data(), " " )
+		
+		local url = THEATER_URL:format( data[1], data[2] ) .. (self.IsTimed and ("&t=%s"):format( math.Round(CurTime() - Video:StartTime()) ) or "" )
 
-		local url = THEATER_URL:format( Video:Data() ) .. (self.IsTimed and ("&t=%s"):format( math.Round(CurTime() - Video:StartTime()) ) or "" )
 		panel:OpenURL( url )
 
 		panel.OnDocumentReady = function(pnl)
@@ -29,35 +31,34 @@ end
 function SERVICE:GetURLInfo( url )
 
 	local bvid = string.match( url.path, "BV%g%g%g%g%g%g%g%g%g%g" )
+	local t = 0
+	local p = 0
+	if url.query then
+		t = url.query.t or 0
+		p = url.query.p or 0
+	end
 	local info = {}
-	info.Data = bvid
+	info.Data = { ["bvid"]=bvid, ["p"]=p+1 }
 	info.StartTime = 1
+	info.StartTime = info.StartTime + t
 	return info
 
 end
 
--- local alphabet = "fZodR9XQDSUm21yCkr6zBqiveYah8bt4xsWpHnJE7jL5VG3guMTKNPAwcF"
--- local function BV2AV( x )
--- 	r = 0
--- 	for i, v in pairs( {11, 10, 3, 8, 4, 6} ) do
-
--- 		r = r + (string.find(alphabet, x[v + 1]) - 1) * math.pow(58, i - 1)
-
--- 	end
-
--- 	return bit.bxor(r - 0x2084007c0, 0x0a93b324)
--- end
-
-function SERVICE:GetVideoInfo( bvid, onSuccess, onFailure )
-
-	http.Fetch( INFO_API:format( bvid ), function( body )
+function SERVICE:GetVideoInfo( d, onSuccess, onFailure )
+	http.Fetch( INFO_API:format( d.bvid ), function( body )
 		local data = util.JSONToTable( body ).data
-		local info = {}
-		info.data = data.aid
-		info.title = data.title
-		info.thumbnail = data.thumbnail
-		info.duration = data.duration
+		
+		local info = { 
+			["data"]=data.aid .. " " .. data.pages[d.p].cid,
+			["title"]=data.title,
+			["thumbnail"]=data.pic,
+			["duration"]=data.pages[d.p].duration
+		}
+		
+		-- PrintTable(info)
 		pcall( onSuccess, info )
+
 	end, onFailure)
 
 end
